@@ -48,30 +48,5 @@ Aplikasi web interaktif pembelajaran Al-Qur'an dan Pendidikan Agama Islam (PAI) 
 
 ---
 
-## 🌐 Cara Deploy Gratis ke GitHub Pages (`github.io`)
-
-Agar aplikasi bisa diakses santri atau wali santri dari mana saja secara gratis melalui link web:
-
-1. Buka terminal (PowerShell atau Git Bash) di dalam folder `quiz`:
-   ```bash
-   git init
-   git add .
-   git commit -m "Inisialisasi Portal Edukasi TPA Walidah"
-   ```
-2. Buat repositori baru di akun GitHub Anda (misal: `tpa-walidah` atau `quiz-walidah`).
-3. Hubungkan repositori lokal ke GitHub:
-   ```bash
-   git remote add origin https://github.com/<username-github-anda>/<nama-repo>.git
-   git branch -M main
-   git push -u origin main
-   ```
-4. **Aktifkan GitHub Pages:**
-   - Masuk ke repositori di GitHub lewat browser.
-   - Klik menu **Settings** ➡️ tab **Pages** (di sisi kiri).
-   - Pada bagian *Branch*, pilih **main** dan folder **/(root)**, lalu klik **Save**.
-   - Tunggu 1–2 menit, web Anda siap diakses di:
-     `https://<username-github-anda>.github.io/<nama-repo>/`
-
----
 
 © 2026 TPA Walidah • Didik Generasi Qur'ani yang Cerdas & Berakhlak Mulia.
