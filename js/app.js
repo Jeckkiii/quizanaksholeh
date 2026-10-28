@@ -13,25 +13,6 @@ const universalBanks = {
   "tqa-kisah-nabi": tqaKisahNabiData
 };
 
-const keyToHash = {
-  'tka-rukun': 'rukun',
-  'tpa-kata-rumpang': 'kata-rumpang',
-  'tpa-sambung-ayat': 'sambung-ayat',
-  'tpa-fiqih': 'fiqih',
-  'tqa-tahfidz-lanjutan': 'tahfidz',
-  'tqa-tajwid': 'tajwid',
-  'tqa-kisah-nabi': 'sirah'
-};
-
-function getPageClassId() {
-  if (window.PAGE_CLASS_ID) return window.PAGE_CLASS_ID;
-  const path = window.location.pathname.toLowerCase();
-  if (path.endsWith('tka.html')) return 'tka';
-  if (path.endsWith('tpa.html')) return 'tpa';
-  if (path.endsWith('tqa.html')) return 'tqa';
-  return 'portal';
-}
-
 // Penyimpanan Sesi Kuis yang Sedang Berjalan (Agar saat refresh F5 tetap lanjut)
 function saveActiveQuizSession() {
   try {
@@ -40,7 +21,8 @@ function saveActiveQuizSession() {
         key: currentQuizKey,
         index: currentQuizIndex,
         score: quizScore,
-        questions: currentQuizList
+        questions: currentQuizList,
+        classId: currentClassId
       }));
     }
   } catch (e) {}
@@ -126,17 +108,34 @@ function navigateTo(viewName) {
   }
 }
 
+function goToPortal() {
+  playSound('click');
+  clearActiveQuizSession();
+  currentClassId = null;
+  window.location.hash = 'portal';
+  navigateTo('portal');
+}
+
 function confirmExitGame() {
-  if (confirm("Ingin kembali ke menu pilihan game?")) {
-    clearActiveQuizSession();
-    const pageClass = getPageClassId();
-    if (pageClass && pageClass !== 'portal') {
-      window.location.hash = 'menu';
-      openClassMenu(pageClass);
-    } else {
-      navigateTo('portal');
+  showAppModal({
+    icon: "❓",
+    title: "Kembali ke Menu Game?",
+    titleClass: "text-xl sm:text-2xl font-black text-slate-800 mb-1",
+    borderClass: "border-amber-400",
+    bodyText: "Apakah kamu ingin kembali ke daftar game? Sesi permainan saat ini akan disudahi.",
+    buttonText: "Ya, Keluar ke Menu 📋",
+    buttonClass: "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold",
+    cancelButtonText: "Lanjut Main 🎯",
+    onAction: () => {
+      clearActiveQuizSession();
+      if (currentClassId) {
+        window.location.hash = currentClassId;
+        openClassMenu(currentClassId, false);
+      } else {
+        goToPortal();
+      }
     }
-  }
+  });
 }
 
 // Konfigurasi Menu 3 Kelas TPA Walidah
@@ -242,11 +241,15 @@ const classConfigs = {
   }
 };
 
-function openClassMenu(classId) {
+function openClassMenu(classId, updateHash = true) {
   playSound('click');
   currentClassId = classId;
   const conf = classConfigs[classId];
   if (!conf) return;
+
+  if (updateHash && window.location.hash !== '#' + classId) {
+    window.location.hash = classId;
+  }
 
   document.getElementById('classMenuTitle').innerText = conf.title;
   document.getElementById('classMenuSubtitle').innerText = conf.subtitle;
@@ -357,11 +360,8 @@ function restoreOrStartQuiz(key) {
 function startUniversalQuiz(key, customQuestionList = null, setHash = true) {
   currentQuizKey = key;
   
-  if (setHash) {
-    const h = keyToHash[key] || (key.startsWith('custom') ? key : 'quiz');
-    if (window.location.hash !== '#' + h) {
-      window.location.hash = h;
-    }
+  if (setHash && window.location.hash !== '#' + key) {
+    window.location.hash = key;
   }
   
   let bank = customQuestionList;
@@ -494,7 +494,7 @@ function selectUniversalAnswer(selectedIndex, clickedBtn) {
 
 let currentModalCallback = null;
 
-function showAppModal({ icon, title, titleClass, borderClass, noticeHtml, bodyText, buttonText, buttonClass, onAction }) {
+function showAppModal({ icon, title, titleClass, borderClass, noticeHtml, bodyText, buttonText, buttonClass, cancelButtonText, onAction, onCancel }) {
   const modal = document.getElementById('feedbackModal');
   const modalBox = document.getElementById('modalContentBox');
   const iconEl = document.getElementById('modalIcon');
@@ -502,6 +502,7 @@ function showAppModal({ icon, title, titleClass, borderClass, noticeHtml, bodyTe
   const noticeEl = document.getElementById('modalCorrectNotice');
   const expEl = document.getElementById('modalExplanation');
   const btnEl = document.getElementById('modalActionBtn');
+  const cancelBtn = document.getElementById('modalCancelBtn');
 
   if (!modal) return;
 
@@ -526,7 +527,21 @@ function showAppModal({ icon, title, titleClass, borderClass, noticeHtml, bodyTe
   if (expEl) expEl.innerText = bodyText || "";
   if (btnEl) {
     btnEl.innerText = buttonText || "Lanjut ➡️";
-    btnEl.className = `w-full py-4 ${buttonClass || 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white'} font-black text-lg rounded-2xl shadow-xl transition active:scale-95`;
+    btnEl.className = `w-full py-3.5 ${buttonClass || 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white'} font-black text-base sm:text-lg rounded-2xl shadow-xl transition active:scale-95`;
+  }
+
+  if (cancelBtn) {
+    if (cancelButtonText) {
+      cancelBtn.innerText = cancelButtonText;
+      cancelBtn.classList.remove('hidden');
+      cancelBtn.onclick = () => {
+        playSound('click');
+        closeModalFeedback();
+        if (typeof onCancel === 'function') onCancel();
+      };
+    } else {
+      cancelBtn.classList.add('hidden');
+    }
   }
 
   currentModalCallback = onAction || null;
@@ -889,7 +904,8 @@ let selectedLetter = null;
 let currentRoundPairs = [];
 
 function startTkaMatchGame(setHash = true) {
-  if (setHash) window.location.hash = 'match';
+  if (setHash) window.location.hash = 'tka-match';
+  currentClassId = 'tka';
   tkaScore = 0;
   const scoreEl = document.getElementById('tkaMatchScore');
   if (scoreEl) scoreEl.innerText = tkaScore;
@@ -1034,7 +1050,8 @@ let balloonStars = 0;
 let targetBalloon = null;
 
 function startTkaBalloonGame(setHash = true) {
-  if (setHash) window.location.hash = 'balloon';
+  if (setHash) window.location.hash = 'tka-balloon';
+  currentClassId = 'tka';
   balloonStars = 0;
   const starsEl = document.getElementById('balloonStars');
   if (starsEl) starsEl.innerText = balloonStars;
@@ -1126,56 +1143,53 @@ function clickBalloon(item, element) {
   }
 }
 
-// Router Berbasis Halaman & Hash (Tetap Berada di Game yang Sama Saat Di-Refresh)
+// Router Berbasis Hash (Tetap Berada di Game yang Sama Saat Di-Refresh & Fullscreen Awet)
 function initPageRouter() {
-  const pageClass = getPageClassId();
-  currentClassId = pageClass;
   const rawHash = (window.location.hash || '').replace('#', '').trim();
 
-  if (pageClass === 'portal') {
-    if (rawHash === 'tka') { window.location.href = 'tka.html'; return; }
-    if (rawHash === 'tpa') { window.location.href = 'tpa.html'; return; }
-    if (rawHash === 'tqa') { window.location.href = 'tqa.html'; return; }
+  if (!rawHash || rawHash === 'portal') {
+    currentClassId = null;
     navigateTo('portal');
     return;
   }
 
-  // Jika di tka.html, tpa.html, atau tqa.html
-  if (!rawHash || rawHash === 'menu') {
-    openClassMenu(pageClass);
+  if (rawHash === 'tka' || rawHash === 'tpa' || rawHash === 'tqa') {
+    openClassMenu(rawHash, false);
     return;
   }
 
-  if (pageClass === 'tka') {
-    if (rawHash === 'match') { startTkaMatchGame(false); return; }
-    if (rawHash === 'balloon') { startTkaBalloonGame(false); return; }
-    if (rawHash === 'rukun') { restoreOrStartQuiz('tka-rukun'); return; }
+  if (rawHash === 'tka-match') {
+    startTkaMatchGame(false);
+    return;
   }
 
-  if (pageClass === 'tpa') {
-    if (rawHash === 'kata-rumpang') { restoreOrStartQuiz('tpa-kata-rumpang'); return; }
-    if (rawHash === 'sambung-ayat') { restoreOrStartQuiz('tpa-sambung-ayat'); return; }
-    if (rawHash === 'fiqih') { restoreOrStartQuiz('tpa-fiqih'); return; }
+  if (rawHash === 'tka-balloon') {
+    startTkaBalloonGame(false);
+    return;
   }
 
-  if (pageClass === 'tqa') {
-    if (rawHash === 'tahfidz') { restoreOrStartQuiz('tqa-tahfidz-lanjutan'); return; }
-    if (rawHash === 'tajwid') { restoreOrStartQuiz('tqa-tajwid'); return; }
-    if (rawHash === 'sirah') { restoreOrStartQuiz('tqa-kisah-nabi'); return; }
-  }
+  if (universalBanks[rawHash] || rawHash.startsWith('custom')) {
+    if (rawHash.startsWith('tka-') || rawHash.includes('tka')) currentClassId = 'tka';
+    else if (rawHash.startsWith('tpa-') || rawHash.includes('tpa')) currentClassId = 'tpa';
+    else if (rawHash.startsWith('tqa-') || rawHash.includes('tqa')) currentClassId = 'tqa';
+    else currentClassId = 'tpa';
 
-  if (rawHash.startsWith('custom')) {
     restoreOrStartQuiz(rawHash);
     return;
   }
 
-  openClassMenu(pageClass);
+  navigateTo('portal');
 }
 
 window.addEventListener('DOMContentLoaded', initPageRouter);
 window.addEventListener('hashchange', () => {
-  const pageClass = getPageClassId();
-  if (pageClass !== 'portal') {
-    initPageRouter();
+  const rawHash = (window.location.hash || '').replace('#', '').trim();
+  if (rawHash === 'portal') {
+    currentClassId = null;
+    navigateTo('portal');
+  } else if (rawHash === 'tka' || rawHash === 'tpa' || rawHash === 'tqa') {
+    if (currentClassId !== rawHash) {
+      openClassMenu(rawHash, false);
+    }
   }
 });

@@ -6,40 +6,34 @@ Aplikasi web interaktif pembelajaran Al-Qur'an dan Pendidikan Agama Islam (PAI) 
 
 ## 🌟 Fitur Utama
 
-1. **Halaman Terpisah Per Jenjang (Multi-Page Architecture):**
-   - **`index.html`**: Portal beranda utama untuk memilih kelas dan akses Mode Ustadz.
-   - **`tka.html`**: Halaman khusus Kelas TKA (Taman Kanak-kanak Al-Qur'an):
-     - 🧩 *Geser & Cocokkan Huruf Hijaiyah*: Drag & drop dan tap untuk memasangkan huruf Arab dengan bunyinya (28 huruf Hijaiyah lengkap).
-     - 🎈 *Tangkap Balon Hijaiyah*: Game memecahkan balon berhuruf Arab dengan skor bintang, efek suara letusan, dan dialog popup pemandu interaktif.
-     - 🌟 *Kuis Rukun Islam & Iman*: 20 soal seputar Rukun Islam, Rukun Iman, dan adab cilik santri.
-   - **`tpa.html`**: Halaman khusus Kelas TPA (Taman Pendidikan Al-Qur'an / SD):
-     - 🔍 *Tebak Kata Rumpang Ayat*: 20 soal melengkapi satu kata yang hilang di ayat-ayat Juz 'Amma.
-     - 📖 *Sambung Ayat Surat Pendek*: 20 soal melanjutkan potongan ayat berikutnya.
-     - 🕌 *Fiqih Ibadah Praktis*: 20 soal thaharah, wudhu, sholat 5 waktu, najis, dan puasa.
-   - **`tqa.html`**: Halaman khusus Kelas TQA (Ta'limul Qur'an lil Aulad / Lanjutan):
-     - 👑 *Tahfidz Juz 30 Lanjutan*: 20 soal surat-surat panjang (*An-Naba', An-Nazi'at, 'Abasa, At-Takwir, Al-Muthaffifin, Al-A'la, Al-Ghasyiyah, dll.*).
-     - 🔬 *Hukum Tajwid*: 20 soal hukum Nun Sukun/Tanwin, Mim Mati, Qalqalah, Mad, Alif Lam Syamsiyah/Qamariyah, dan Saktah.
-     - 📜 *Kisah 25 Nabi & Sirah Nabawiyah*: 20 soal sirah Rasulullah SAW, para sahabat, dan sejarah para nabi.
+1. **Navigasi Mulus & Ramah Layar Penuh Proyektor (SPA):**
+   - Seluruh modul kelas (TKA, TPA, TQA) berjalan langsung di dalam satu halaman yang mulus (**Single Page Application**).
+   - Saat masuk ke **Mode Layar Penuh (Fullscreen)**, Ustadz/ah dapat bebas memilih kelas, berganti game, atau membuka menu tanpa khawatir layar penuh tertutup secara tiba-tiba.
+   - Tidak ada kedipan layar putih atau muat ulang file terpisah (`.html`).
 
-2. **Tetap di Game Saat Di-Refresh (URL Hash & Session Persistence):**
-   - Setiap game memiliki URL Hash yang unik (misal: `tpa.html#sambung-ayat`, `tka.html#balloon`).
-   - Apabila halaman di-refresh (F5), aplikasi **tidak akan kembali ke awal**, melainkan tetap berada di game yang sedang aktif dan mempertahankan urutan soal serta perolehan skor saat itu.
+2. **Dialog Konfirmasi In-App (Bebas Popup Browser Bawaan):**
+   - Tombol "Keluar ke Menu" saat di dalam game menggunakan **Popup Modal In-App** dengan pilihan *"Ya, Keluar ke Menu"* atau *"Lanjut Main"*.
+   - Tidak menggunakan dialog `confirm()` atau `alert()` bawaan browser yang biasanya otomatis memaksa laptop keluar dari mode Fullscreen.
 
-3. **Popup Modal Feedback Cantik (Bebas Alert Browser Default):**
-   - Seluruh dialog informasi, termasuk saat santri menyentuh balon yang kurang tepat di game balon, kini menggunakan **Popup Modal Interaktif** yang ramah anak, senada dengan popup kuis (menampilkan huruf target, bunyi, dan kata-kata penyemangat).
-   - Penjelasan jawaban yang benar/salah muncul mengambang di tengah layar tanpa perlu scroll naik-turun.
+3. **Tetap di Game Saat Di-Refresh (URL Hash & Session Persistence):**
+   - Setiap jenjang dan modul game memiliki penanda tautan hash yang rapi (misal: `#tpa`, `#tpa-sambung-ayat`, `#tka-balloon`).
+   - Apabila halaman di-refresh (F5), aplikasi **tidak akan kembali ke beranda awal**, melainkan otomatis memuat kembali game yang sedang dimainkan dan melanjutkan urutan soal serta perolehan skor saat itu.
 
-4. **Bank Soal 20 Butir & Sistem Acak Dinamis:**
-   - Setiap kategori quiz memiliki **20 butir soal lengkap**.
-   - Dilengkapi pengatur jumlah soal saat bermain: **5**, **10**, **20**, atau **Semua**.
-   - Setiap sesi permainan mengacak urutan soal dan mengacak urutan pilihan jawaban (*Fisher-Yates Shuffle*).
+4. **Popup Modal Balon Ceria:**
+   - Saat santri memecahkan balon yang keliru pada game **Tangkap Balon Hijaiyah**, muncul popup dialog pemandu yang menampilkan huruf target dan huruf yang disentuh, tanpa menggunakan alert browser yang kaku.
 
-5. **Mode Ustadz (Kontrol Pengajar):**
-   - 🎯 **Lihat & Tampilkan Soal Tertentu:** Ustadz/ah dapat melihat seluruh bank soal dan memilih 1 soal spesifik untuk ditampilkan di proyektor saat menunjuk santri tertentu untuk menjawab.
+5. **Bank Soal Lengkap 20 Butir Tiap Kategori:**
+   - TKA: 28 Huruf Hijaiyah (Geser & Balon) + 20 Soal Rukun Islam & Iman.
+   - TPA: 20 Kata Rumpang + 20 Sambung Ayat + 20 Fiqih Ibadah Praktis.
+   - TQA: 20 Tahfidz Juz 30 Lanjutan + 20 Hukum Tajwid + 20 Sirah & Kisah Nabi.
+   - Dilengkapi pengatur jumlah soal: **5**, **10**, **20**, atau **Semua** dengan pengacakan dinamis (*Fisher-Yates Shuffle*).
+
+6. **Mode Ustadz (Kontrol Pengajar):**
+   - 🎯 **Lihat & Tampilkan Soal Tertentu:** Memilih 1 soal spesifik untuk ditampilkan di proyektor saat menunjuk santri tertentu untuk menjawab.
    - 🎲 **Acak Santri (Picker):** Mengocok nomor absen santri secara adil untuk giliran menjawab.
    - ✏️ **Buat Soal Sendiri (Per Kelas):** Ustadz/ah dapat menambahkan soal kustom baru untuk kelas **TKA**, **TPA**, maupun **TQA** secara mandiri yang otomatis tersimpan di browser (*localStorage*).
 
-6. **Audio Efek Mandiri (Web Audio API):**
+7. **Audio Efek Mandiri (Web Audio API):**
    - Efek suara 'ting' ceria, nada salah yang bersahabat, pop letusan balon, dan nada kemenangan tanpa memerlukan file MP3 eksternal.
 
 ---
