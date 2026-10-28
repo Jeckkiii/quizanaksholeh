@@ -13,6 +13,45 @@ const universalBanks = {
   "tqa-kisah-nabi": tqaKisahNabiData
 };
 
+const keyToHash = {
+  'tka-rukun': 'rukun',
+  'tpa-kata-rumpang': 'kata-rumpang',
+  'tpa-sambung-ayat': 'sambung-ayat',
+  'tpa-fiqih': 'fiqih',
+  'tqa-tahfidz-lanjutan': 'tahfidz',
+  'tqa-tajwid': 'tajwid',
+  'tqa-kisah-nabi': 'sirah'
+};
+
+function getPageClassId() {
+  if (window.PAGE_CLASS_ID) return window.PAGE_CLASS_ID;
+  const path = window.location.pathname.toLowerCase();
+  if (path.endsWith('tka.html')) return 'tka';
+  if (path.endsWith('tpa.html')) return 'tpa';
+  if (path.endsWith('tqa.html')) return 'tqa';
+  return 'portal';
+}
+
+// Penyimpanan Sesi Kuis yang Sedang Berjalan (Agar saat refresh F5 tetap lanjut)
+function saveActiveQuizSession() {
+  try {
+    if (currentQuizKey && currentQuizList && currentQuizList.length > 0) {
+      sessionStorage.setItem('walidah_active_quiz', JSON.stringify({
+        key: currentQuizKey,
+        index: currentQuizIndex,
+        score: quizScore,
+        questions: currentQuizList
+      }));
+    }
+  } catch (e) {}
+}
+
+function clearActiveQuizSession() {
+  try {
+    sessionStorage.removeItem('walidah_active_quiz');
+  } catch (e) {}
+}
+
 // Penyimpanan Soal Kustom Ustadz di LocalStorage (Tergrup Per Kelas)
 function getCustomQuestions() {
   try {
@@ -89,8 +128,11 @@ function navigateTo(viewName) {
 
 function confirmExitGame() {
   if (confirm("Ingin kembali ke menu pilihan game?")) {
-    if (currentClassId) {
-      openClassMenu(currentClassId);
+    clearActiveQuizSession();
+    const pageClass = getPageClassId();
+    if (pageClass && pageClass !== 'portal') {
+      window.location.hash = 'menu';
+      openClassMenu(pageClass);
     } else {
       navigateTo('portal');
     }
@@ -287,20 +329,62 @@ function setQuestionLimit(val) {
   });
 }
 
-function startUniversalQuiz(key, customQuestionList = null) {
+function restoreOrStartQuiz(key) {
+  try {
+    const raw = sessionStorage.getItem('walidah_active_quiz');
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (saved && saved.key === key && Array.isArray(saved.questions) && saved.questions.length > 0) {
+        currentQuizKey = saved.key;
+        currentQuizList = saved.questions;
+        currentQuizIndex = Math.min(saved.index || 0, saved.questions.length - 1);
+        quizScore = saved.score || 0;
+        const scoreEl = document.getElementById('quizLiveScore');
+        if (scoreEl) scoreEl.innerText = quizScore;
+        loadUniversalQuestion();
+        navigateTo('universal-quiz');
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn("Gagal memulihkan sesi quiz:", e);
+  }
+
+  // Jika tidak ada sesi tersimpan, mulai kuis baru untuk key tersebut
+  startUniversalQuiz(key, null, false);
+}
+
+function startUniversalQuiz(key, customQuestionList = null, setHash = true) {
   currentQuizKey = key;
+  
+  if (setHash) {
+    const h = keyToHash[key] || (key.startsWith('custom') ? key : 'quiz');
+    if (window.location.hash !== '#' + h) {
+      window.location.hash = h;
+    }
+  }
   
   let bank = customQuestionList;
   if (!bank) {
-    if (key === 'custom') {
-      bank = getCustomQuestions();
+    if (key.startsWith('custom')) {
+      const classKey = key.replace('custom-', '');
+      bank = (classKey === 'custom' || classKey === 'all') ? getCustomQuestions() : getCustomQuestionsByClass(classKey);
     } else {
       bank = universalBanks[key];
     }
   }
 
   if (!bank || bank.length === 0) {
-    alert("Bank soal belum tersedia atau belum ada soal kustom yang dibuat!");
+    showAppModal({
+      icon: "⚠️",
+      title: "Bank Soal Belum Tersedia",
+      titleClass: "text-xl sm:text-2xl font-black text-amber-900 mb-1",
+      borderClass: "border-amber-400",
+      bodyText: "Belum ada soal untuk kategori ini atau belum ada soal kustom yang dibuat.",
+      buttonText: "Mengerti 👍",
+      buttonClass: "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold",
+      onAction: () => {}
+    });
     return;
   }
 
@@ -333,6 +417,7 @@ function startUniversalQuiz(key, customQuestionList = null) {
 }
 
 function loadUniversalQuestion() {
+  saveActiveQuizSession();
   const q = currentQuizList[currentQuizIndex];
   const total = currentQuizList.length;
 
@@ -401,35 +486,91 @@ function selectUniversalAnswer(selectedIndex, clickedBtn) {
     }
   }
 
+  saveActiveQuizSession();
+
   // Tampilkan Popup Modal
   openModalFeedback(isCorrect, q.exp, q.options[q.correct]);
 }
 
-function openModalFeedback(isCorrect, explanation, correctAnswerText) {
+let currentModalCallback = null;
+
+function showAppModal({ icon, title, titleClass, borderClass, noticeHtml, bodyText, buttonText, buttonClass, onAction }) {
   const modal = document.getElementById('feedbackModal');
   const modalBox = document.getElementById('modalContentBox');
-  const icon = document.getElementById('modalIcon');
-  const title = document.getElementById('modalTitle');
-  const correctNotice = document.getElementById('modalCorrectNotice');
-  const expText = document.getElementById('modalExplanation');
+  const iconEl = document.getElementById('modalIcon');
+  const titleEl = document.getElementById('modalTitle');
+  const noticeEl = document.getElementById('modalCorrectNotice');
+  const expEl = document.getElementById('modalExplanation');
+  const btnEl = document.getElementById('modalActionBtn');
 
-  if (isCorrect) {
-    icon.innerText = "🌟";
-    title.innerText = "Mumtaz! Jawaban Benar!";
-    title.className = "text-xl sm:text-2xl font-black text-emerald-800 mb-1";
-    modalBox.className = "bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border-4 border-emerald-400 shadow-2xl text-center animate-pop relative";
-    correctNotice.classList.add('hidden');
-  } else {
-    icon.innerText = "💡";
-    title.innerText = "Kurang Tepat, Mari Pelajari!";
-    title.className = "text-xl sm:text-2xl font-black text-amber-900 mb-1";
-    modalBox.className = "bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border-4 border-amber-400 shadow-2xl text-center animate-pop relative";
-    correctNotice.classList.remove('hidden');
-    correctNotice.innerHTML = `Jawaban yang tepat: <strong class="text-emerald-700">${correctAnswerText}</strong>`;
+  if (!modal) return;
+
+  if (iconEl) iconEl.innerText = icon || "🌟";
+  if (titleEl) {
+    titleEl.innerText = title || "Informasi";
+    titleEl.className = titleClass || "text-xl sm:text-2xl font-black text-emerald-800 mb-1";
+  }
+  if (modalBox) {
+    modalBox.className = `bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border-4 ${borderClass || 'border-emerald-400'} shadow-2xl text-center animate-pop relative`;
   }
 
-  expText.innerText = explanation || "Perhatikan dan pelajari kaidahnya dengan seksama.";
+  if (noticeEl) {
+    if (noticeHtml) {
+      noticeEl.innerHTML = noticeHtml;
+      noticeEl.classList.remove('hidden');
+    } else {
+      noticeEl.classList.add('hidden');
+    }
+  }
+
+  if (expEl) expEl.innerText = bodyText || "";
+  if (btnEl) {
+    btnEl.innerText = buttonText || "Lanjut ➡️";
+    btnEl.className = `w-full py-4 ${buttonClass || 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white'} font-black text-lg rounded-2xl shadow-xl transition active:scale-95`;
+  }
+
+  currentModalCallback = onAction || null;
   modal.classList.remove('hidden');
+}
+
+function handleModalActionClick() {
+  playSound('click');
+  closeModalFeedback();
+  if (typeof currentModalCallback === 'function') {
+    const cb = currentModalCallback;
+    currentModalCallback = null;
+    cb();
+  } else {
+    modalNextAction();
+  }
+}
+
+function openModalFeedback(isCorrect, explanation, correctAnswerText) {
+  if (isCorrect) {
+    showAppModal({
+      icon: "🌟",
+      title: "Mumtaz! Jawaban Benar!",
+      titleClass: "text-xl sm:text-2xl font-black text-emerald-800 mb-1",
+      borderClass: "border-emerald-400",
+      noticeHtml: null,
+      bodyText: explanation || "Masya Allah, jawabanmu tepat sekali!",
+      buttonText: "Lanjut ke Soal Berikutnya ➡️",
+      buttonClass: "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white",
+      onAction: () => modalNextAction()
+    });
+  } else {
+    showAppModal({
+      icon: "💡",
+      title: "Kurang Tepat, Mari Pelajari!",
+      titleClass: "text-xl sm:text-2xl font-black text-amber-900 mb-1",
+      borderClass: "border-amber-400",
+      noticeHtml: `Jawaban yang tepat: <strong class="text-emerald-700">${correctAnswerText}</strong>`,
+      bodyText: explanation || "Perhatikan dan pelajari kaidahnya dengan seksama.",
+      buttonText: "Lanjut ke Soal Berikutnya ➡️",
+      buttonClass: "bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-700 hover:to-emerald-700 text-white",
+      onAction: () => modalNextAction()
+    });
+  }
 }
 
 function closeModalFeedback() {
@@ -449,6 +590,7 @@ function modalNextAction() {
 }
 
 function showFinalResults() {
+  clearActiveQuizSession();
   document.getElementById('quizProgressBar').style.width = "100%";
   playSound('fanfare');
   confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
@@ -478,12 +620,13 @@ function showFinalResults() {
 }
 
 function playAgainSameGame() {
+  clearActiveQuizSession();
   if (currentQuizKey) {
     startUniversalQuiz(currentQuizKey);
-  } else if (currentClassId) {
+  } else if (currentClassId && currentClassId !== 'portal') {
     openClassMenu(currentClassId);
   } else {
-    navigateTo('portal');
+    window.location.href = 'index.html';
   }
 }
 
@@ -608,7 +751,16 @@ function handleCreateCustomQuestion(e) {
   const expText = document.getElementById('customExp').value.trim();
 
   if (!qText || !optA || !optB || !optC || !optD) {
-    alert("Harap isi pertanyaan dan seluruh pilihan A, B, C, D!");
+    showAppModal({
+      icon: "⚠️",
+      title: "Form Belum Lengkap",
+      titleClass: "text-xl sm:text-2xl font-black text-rose-800 mb-1",
+      borderClass: "border-rose-400",
+      bodyText: "Harap isi pertanyaan dan seluruh pilihan jawaban A, B, C, dan D dengan lengkap.",
+      buttonText: "Perbaiki ✍️",
+      buttonClass: "bg-rose-500 hover:bg-rose-600 text-white font-bold",
+      onAction: () => {}
+    });
     return;
   }
 
@@ -637,7 +789,16 @@ function handleCreateCustomQuestion(e) {
   document.getElementById('customExp').value = '';
 
   playSound('correct');
-  alert(`Alhamdulillah! Soal kustom untuk kelas ${targetClass.toUpperCase()} berhasil disimpan!`);
+  showAppModal({
+    icon: "🎉",
+    title: "Alhamdulillah! Soal Berhasil Disimpan!",
+    titleClass: "text-xl sm:text-2xl font-black text-emerald-800 mb-1",
+    borderClass: "border-emerald-400",
+    bodyText: `Soal baru untuk kelas ${targetClass.toUpperCase()} telah tersimpan dan siap dimainkan!`,
+    buttonText: "Lihat Koleksi Soal 👍",
+    buttonClass: "bg-emerald-600 hover:bg-emerald-700 text-white font-bold",
+    onAction: () => {}
+  });
   renderCustomQuestionsList();
 }
 
@@ -704,7 +865,16 @@ function playFilteredCustomQuestions() {
   const all = getCustomQuestions();
   const list = currentCustomFilter === 'all' ? all : all.filter(q => (q.classId || 'tpa') === currentCustomFilter);
   if (list.length === 0) {
-    alert("Belum ada soal kustom untuk kategori ini! Silakan buat soal terlebih dahulu.");
+    showAppModal({
+      icon: "ℹ️",
+      title: "Koleksi Masih Kosong",
+      titleClass: "text-xl sm:text-2xl font-black text-amber-900 mb-1",
+      borderClass: "border-amber-400",
+      bodyText: "Belum ada soal kustom untuk kategori ini. Silakan buat soal baru terlebih dahulu di tab 'Buat Soal Sendiri'.",
+      buttonText: "Siap Ustadz 👍",
+      buttonClass: "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold",
+      onAction: () => {}
+    });
     return;
   }
   closeTeacherMode();
@@ -718,15 +888,18 @@ let tkaScore = 0;
 let selectedLetter = null;
 let currentRoundPairs = [];
 
-function startTkaMatchGame() {
+function startTkaMatchGame(setHash = true) {
+  if (setHash) window.location.hash = 'match';
   tkaScore = 0;
-  document.getElementById('tkaMatchScore').innerText = tkaScore;
+  const scoreEl = document.getElementById('tkaMatchScore');
+  if (scoreEl) scoreEl.innerText = tkaScore;
   setupTkaMatchGame();
   navigateTo('game-tka-match');
 }
 
 function setupTkaMatchGame() {
-  document.getElementById('tkaNextRoundBtn').classList.add('hidden');
+  const nextBtn = document.getElementById('tkaNextRoundBtn');
+  if (nextBtn) nextBtn.classList.add('hidden');
   selectedLetter = null;
 
   const shuffled = shuffleArray(fullHijaiyahBank);
@@ -735,6 +908,7 @@ function setupTkaMatchGame() {
   // Sumber huruf Arab
   const lettersToPick = shuffleArray(currentRoundPairs);
   const sourceContainer = document.getElementById('tkaLetterSource');
+  if (!sourceContainer) return;
   sourceContainer.innerHTML = '';
 
   lettersToPick.forEach(item => {
@@ -754,6 +928,7 @@ function setupTkaMatchGame() {
   // Target kotak sasaran
   const targetsToMatch = shuffleArray(currentRoundPairs);
   const targetsContainer = document.getElementById('tkaLetterTargets');
+  if (!targetsContainer) return;
   targetsContainer.innerHTML = '';
 
   targetsToMatch.forEach(item => {
@@ -801,18 +976,30 @@ function selectSourceLetter(item, btnElement) {
 
 function tryMatchTarget(targetItem, rowElement) {
   if (!selectedLetter) {
-    alert("Pilih salah satu huruf Arab di sebelah kiri terlebih dahulu ya!");
+    showAppModal({
+      icon: "🧩",
+      title: "Pilih Huruf Terlebih Dahulu",
+      titleClass: "text-xl sm:text-2xl font-black text-amber-900 mb-1",
+      borderClass: "border-amber-400",
+      bodyText: "Klik atau geser salah satu kartu huruf Arab di sebelah kiri terlebih dahulu ya!",
+      buttonText: "Mengerti 🎯",
+      buttonClass: "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold",
+      onAction: () => {}
+    });
     return;
   }
 
   if (selectedLetter.name === targetItem.name) {
     playSound('correct');
     tkaScore += 25;
-    document.getElementById('tkaMatchScore').innerText = tkaScore;
+    const scoreEl = document.getElementById('tkaMatchScore');
+    if (scoreEl) scoreEl.innerText = tkaScore;
 
     const slot = document.getElementById(`target-slot-${targetItem.name}`);
-    slot.innerText = selectedLetter.ar;
-    slot.className = "w-14 h-14 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-arabic text-3xl font-bold shadow-md";
+    if (slot) {
+      slot.innerText = selectedLetter.ar;
+      slot.className = "w-14 h-14 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-arabic text-3xl font-bold shadow-md";
+    }
 
     rowElement.className = "flex items-center justify-between p-3.5 bg-emerald-50 border-2 border-emerald-500 rounded-2xl pointer-events-none";
 
@@ -828,7 +1015,8 @@ function tryMatchTarget(targetItem, rowElement) {
     if (disabledBtns.length === 4) {
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
       playSound('fanfare');
-      document.getElementById('tkaNextRoundBtn').classList.remove('hidden');
+      const nextBtn = document.getElementById('tkaNextRoundBtn');
+      if (nextBtn) nextBtn.classList.remove('hidden');
     }
   } else {
     playSound('wrong');
@@ -845,20 +1033,25 @@ function tryMatchTarget(targetItem, rowElement) {
 let balloonStars = 0;
 let targetBalloon = null;
 
-function startTkaBalloonGame() {
+function startTkaBalloonGame(setHash = true) {
+  if (setHash) window.location.hash = 'balloon';
   balloonStars = 0;
-  document.getElementById('balloonStars').innerText = balloonStars;
+  const starsEl = document.getElementById('balloonStars');
+  if (starsEl) starsEl.innerText = balloonStars;
   initBalloonGame();
   navigateTo('game-tka-balloon');
 }
 
 function initBalloonGame() {
-  document.getElementById('balloonFeedback').classList.add('hidden');
+  const fb = document.getElementById('balloonFeedback');
+  if (fb) fb.classList.add('hidden');
   const shuffled = shuffleArray(fullHijaiyahBank);
   targetBalloon = shuffled[0];
 
-  document.getElementById('targetBalloonLetter').innerText = targetBalloon.ar;
-  document.getElementById('targetBalloonName').innerText = `Huruf "${targetBalloon.name}"`;
+  const letterEl = document.getElementById('targetBalloonLetter');
+  if (letterEl) letterEl.innerText = targetBalloon.ar;
+  const nameEl = document.getElementById('targetBalloonName');
+  if (nameEl) nameEl.innerText = `Huruf "${targetBalloon.name}"`;
 
   const options = shuffleArray([targetBalloon, shuffled[1], shuffled[2], shuffled[3]]);
   const balloonColors = [
@@ -869,6 +1062,7 @@ function initBalloonGame() {
   ];
 
   const grid = document.getElementById('balloonGrid');
+  if (!grid) return;
   grid.innerHTML = '';
 
   options.forEach((item, index) => {
@@ -887,15 +1081,18 @@ function clickBalloon(item, element) {
   if (item.name === targetBalloon.name) {
     playSound('pop');
     balloonStars += 1;
-    document.getElementById('balloonStars').innerText = balloonStars;
+    const starsEl = document.getElementById('balloonStars');
+    if (starsEl) starsEl.innerText = balloonStars;
 
     element.style.transform = 'scale(1.3)';
     element.style.opacity = '0';
     element.style.transition = 'all 0.2s ease-out';
 
     const fb = document.getElementById('balloonFeedback');
-    fb.classList.remove('hidden');
-    fb.innerText = `🎉 Mumtaz! Huruf ${item.name} berhasil dipecahkan!`;
+    if (fb) {
+      fb.classList.remove('hidden');
+      fb.innerText = `🎉 Mumtaz! Huruf ${item.name} (${item.ar}) berhasil dipecahkan!`;
+    }
 
     confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
 
@@ -903,12 +1100,82 @@ function clickBalloon(item, element) {
       initBalloonGame();
     }, 1200);
   } else {
+    // Popup Modal Feedback Ceria (Bukan Browser Alert!)
     playSound('wrong');
-    alert(`Bukan ini ya, ayo cari huruf "${targetBalloon.name}" (${targetBalloon.ar})!`);
+    showAppModal({
+      icon: "🎈",
+      title: "Kurang Tepat, Ayo Coba Lagi!",
+      titleClass: "text-xl sm:text-2xl font-black text-amber-900 mb-1",
+      borderClass: "border-amber-400",
+      noticeHtml: `
+        <div class="py-2 text-center bg-amber-50 rounded-2xl border border-amber-200">
+          <p class="text-xs text-slate-500 font-semibold mb-1">Balon yang disentuh:</p>
+          <p class="text-3xl font-black text-amber-700 font-arabic">${item.ar} <span class="font-sans text-base font-bold text-slate-700">("${item.name}")</span></p>
+          <div class="my-2 border-t border-amber-200"></div>
+          <p class="text-xs text-slate-500 font-semibold mb-1">Ayo cari balon berhuruf target:</p>
+          <p class="text-4xl font-black text-emerald-700 font-arabic">${targetBalloon.ar} <span class="font-sans text-base font-bold text-emerald-800">("${targetBalloon.name}")</span></p>
+        </div>
+      `,
+      bodyText: "Perhatikan bentuk huruf dan titiknya ya! Adik-adik santri pasti bisa menemukan balon yang benar! 🌟",
+      buttonText: "Siap, Coba Lagi! 🎯",
+      buttonClass: "bg-gradient-to-r from-amber-500 to-emerald-600 hover:from-amber-600 hover:to-emerald-700 text-white font-black",
+      onAction: () => {
+        // Santri dapat langsung mencari dan mencoba balon yang lain
+      }
+    });
   }
 }
 
-// Inisialisasi Pertama
-window.addEventListener('DOMContentLoaded', () => {
-  navigateTo('portal');
+// Router Berbasis Halaman & Hash (Tetap Berada di Game yang Sama Saat Di-Refresh)
+function initPageRouter() {
+  const pageClass = getPageClassId();
+  currentClassId = pageClass;
+  const rawHash = (window.location.hash || '').replace('#', '').trim();
+
+  if (pageClass === 'portal') {
+    if (rawHash === 'tka') { window.location.href = 'tka.html'; return; }
+    if (rawHash === 'tpa') { window.location.href = 'tpa.html'; return; }
+    if (rawHash === 'tqa') { window.location.href = 'tqa.html'; return; }
+    navigateTo('portal');
+    return;
+  }
+
+  // Jika di tka.html, tpa.html, atau tqa.html
+  if (!rawHash || rawHash === 'menu') {
+    openClassMenu(pageClass);
+    return;
+  }
+
+  if (pageClass === 'tka') {
+    if (rawHash === 'match') { startTkaMatchGame(false); return; }
+    if (rawHash === 'balloon') { startTkaBalloonGame(false); return; }
+    if (rawHash === 'rukun') { restoreOrStartQuiz('tka-rukun'); return; }
+  }
+
+  if (pageClass === 'tpa') {
+    if (rawHash === 'kata-rumpang') { restoreOrStartQuiz('tpa-kata-rumpang'); return; }
+    if (rawHash === 'sambung-ayat') { restoreOrStartQuiz('tpa-sambung-ayat'); return; }
+    if (rawHash === 'fiqih') { restoreOrStartQuiz('tpa-fiqih'); return; }
+  }
+
+  if (pageClass === 'tqa') {
+    if (rawHash === 'tahfidz') { restoreOrStartQuiz('tqa-tahfidz-lanjutan'); return; }
+    if (rawHash === 'tajwid') { restoreOrStartQuiz('tqa-tajwid'); return; }
+    if (rawHash === 'sirah') { restoreOrStartQuiz('tqa-kisah-nabi'); return; }
+  }
+
+  if (rawHash.startsWith('custom')) {
+    restoreOrStartQuiz(rawHash);
+    return;
+  }
+
+  openClassMenu(pageClass);
+}
+
+window.addEventListener('DOMContentLoaded', initPageRouter);
+window.addEventListener('hashchange', () => {
+  const pageClass = getPageClassId();
+  if (pageClass !== 'portal') {
+    initPageRouter();
+  }
 });

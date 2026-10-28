@@ -104,7 +104,7 @@
               Mengenal bentuk huruf Hijaiyah, permainan geser huruf, tangkap balon, dan dasar rukun Islam yang ceria.
             </p>
           </div>
-          <button onclick="openClassMenu('tka')" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-amber-500/30 transition active:scale-95 flex items-center justify-center gap-2">
+          <button onclick="window.location.href='tka.html'" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-amber-500/30 transition active:scale-95 flex items-center justify-center gap-2">
             <span>Buka Kelas TKA</span>
             <span>👉</span>
           </button>
@@ -121,7 +121,7 @@
               Sambung ayat Juz 'Amma, tebak kata ayat yang hilang (kata rumpang), dan kuis fiqih ibadah anak sholeh.
             </p>
           </div>
-          <button onclick="openClassMenu('tpa')" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-2">
+          <button onclick="window.location.href='tpa.html'" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-2">
             <span>Buka Kelas TPA</span>
             <span>👉</span>
           </button>
@@ -138,7 +138,7 @@
               Tahfidz Juz 30 lanjutan (*An-Naba s.d. Al-A'la*), ilmu hukum Tajwid aplikatif, dan sirah nabawiyah.
             </p>
           </div>
-          <button onclick="openClassMenu('tqa')" class="w-full py-4 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-sky-600/30 transition active:scale-95 flex items-center justify-center gap-2">
+          <button onclick="window.location.href='tqa.html'" class="w-full py-4 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-extrabold text-base rounded-2xl shadow-lg shadow-sky-600/30 transition active:scale-95 flex items-center justify-center gap-2">
             <span>Buka Kelas TQA</span>
             <span>👉</span>
           </button>
@@ -341,7 +341,7 @@
       <h3 id="modalTitle" class="text-xl sm:text-2xl font-black text-emerald-800 mb-1">Mumtaz! Jawaban Benar!</h3>
       <div id="modalCorrectNotice" class="text-sm font-bold text-slate-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mb-3 hidden"></div>
       <p id="modalExplanation" class="text-slate-600 text-sm sm:text-base font-medium mb-6 leading-relaxed"></p>
-      <button onclick="modalNextAction()" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-lg rounded-2xl shadow-xl transition active:scale-95">
+      <button id="modalActionBtn" onclick="handleModalActionClick()" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-lg rounded-2xl shadow-xl transition active:scale-95">
         Lanjut ke Soal Berikutnya ➡️
       </button>
     </div>
